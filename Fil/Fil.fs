@@ -51,8 +51,23 @@ let rec generate (il:ILGenerator) = function
         generateAll il args
         il.EmitCall(OpCodes.Call, mi, null)
     | arg -> raise <| System.NotSupportedException(arg.ToString())
-and generateArray (i:ILGenerator) t args =
-    raise (System.NotImplementedException())
+and generateArray (il:ILGenerator) t args =
+    let arrayType = t.MakeArrayType()
+    let arrayRef = il.DeclareLocal(arrayType).LocalIndex
+    generateInt il args.Length
+    il.Emit(OpCodes.Newarr,t)
+    il.Emit(OpCodes.Stloc,arrayRef)
+    args |> Seq.iteri (fun i arg ->
+        il.Emit(OpCodes.Ldloc,arrayRef)
+        generateInt il i
+        generate il arg
+        generateArrayStoreElem il t
+    )
+    il.Emit(OpCodes.Ldloc,arrayRef)
+and generateArrayStoreElem il t =
+    match t with
+    | _ when t = typeof<int> -> il.Emit(OpCodes.Stelem_I4)
+    | _ -> raise <| System.NotImplementedException()
 and generateOps (il:ILGenerator) args ops =
     generateAll il args
     for op in ops do il.Emit(op)
