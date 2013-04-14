@@ -50,10 +50,7 @@ let rec generate env (il:ILGenerator) = function
     | SpecificCall <@@ (*) @@> (None, _, args) -> generateOps env il args [OpCodes.Mul]
     | SpecificCall <@@ (/) @@> (None, _, args) -> generateOps env il args [OpCodes.Div]
     | SpecificCall <@@ (%) @@> (None, _, args) -> generateOps env il args [OpCodes.Rem]
-    | SpecificCall <@@ ( ** ) @@> (None, _, args) ->
-        generateAll env il args
-        let mi = typeof<System.Math>.GetMethod("Pow")
-        il.EmitCall(OpCodes.Call, mi, null)
+    | SpecificCall <@@ ( ** ) @@> (None, _, args) -> generatePow env il args
     | SpecificCall <@@ (=) @@> (None, _, args) -> generateOps env il args [OpCodes.Ceq]
     | SpecificCall <@@ (<>) @@> (None, _, args) -> generateOps env il args [OpCodes.Ceq;OpCodes.Ldc_I4_0;OpCodes.Ceq]
     | SpecificCall <@@ (<) @@> (None, _, args) -> generateOps env il args [OpCodes.Clt]
@@ -70,22 +67,15 @@ let rec generate env (il:ILGenerator) = function
         let env = (var.Name,local)::env
         generate env il cont
     | Var(var) ->
-        match env |> List.tryFind (fst >> (=) var.Name) with
-        | Some(_, local) -> il.Emit(OpCodes.Ldloc, local.LocalIndex)
-        | None -> invalidOp ""
-    | Sequential(lhs,rhs) -> 
-        generate env il lhs
-        generate env il rhs
-    | IfThenElse(condition, t, f) ->
-        generate env il condition
-        let endLabel = il.DefineLabel()
-        let trueBranchLabel = il.DefineLabel()
-        il.Emit(OpCodes.Brtrue_S, trueBranchLabel)        
-        generate env il f
-        il.Emit(OpCodes.Br_S, endLabel)
-        il.MarkLabel(trueBranchLabel)        
-        generate env il t
-        il.MarkLabel(endLabel)
+        let _, local = env |> List.find (fst >> (=) var.Name)
+        il.Emit(OpCodes.Ldloc, local)
+    | VarSet(var,assignment) ->
+        let _, local = env |> List.find (fst >> (=) var.Name)
+        generate env il assignment
+        il.Emit(OpCodes.Stloc, local)
+    | Sequential(lhs,rhs) -> generate env il lhs; generate env il rhs
+    | IfThenElse(condition, t, f) -> generateIfThenElse env il condition t f
+    | ForIntegerRangeLoop(var,Int a,Int b,body) -> generateForLoop env il var a b body
     | arg -> raise <| System.NotSupportedException(arg.ToString())
 and generateTuple env (il:ILGenerator) args =
     for arg in args do generate env il arg
@@ -105,6 +95,37 @@ and generateArray env (il:ILGenerator) t args =
 and generateOps env (il:ILGenerator) args ops =
     generateAll env il args
     for op in ops do il.Emit(op)
+and generatePow env (il:ILGenerator) args =
+    generateAll env il args
+    let mi = typeof<System.Math>.GetMethod("Pow")
+    il.EmitCall(OpCodes.Call, mi, null)
+and generateIfThenElse env (il:ILGenerator) condition t f =
+    generate env il condition
+    let endLabel = il.DefineLabel()
+    let trueBranchLabel = il.DefineLabel()
+    il.Emit(OpCodes.Brtrue_S, trueBranchLabel)        
+    generate env il f
+    il.Emit(OpCodes.Br_S, endLabel)
+    il.MarkLabel(trueBranchLabel)        
+    generate env il t
+    il.MarkLabel(endLabel)
+and generateForLoop env (il:ILGenerator) (var:Var) a b body =
+    let loopLabel = il.DefineLabel()
+    let exitLabel = il.DefineLabel()
+    let local = il.DeclareLocal(var.Type)
+    let env = (var.Name, local)::env
+    generateInt il a
+    il.MarkLabel(loopLabel)
+    il.Emit(OpCodes.Dup)
+    il.Emit(OpCodes.Stloc, local)
+    generateInt il b
+    il.Emit(OpCodes.Bgt_S, exitLabel)
+    generate env il body
+    il.Emit(OpCodes.Ldloc, local)
+    generateInt il 1
+    il.Emit(OpCodes.Add)
+    il.Emit(OpCodes.Br_S, loopLabel)
+    il.MarkLabel(exitLabel)
 and generateInt (il:ILGenerator) = function
     | 0 -> il.Emit(OpCodes.Ldc_I4_0)
     | 1 -> il.Emit(OpCodes.Ldc_I4_1)
