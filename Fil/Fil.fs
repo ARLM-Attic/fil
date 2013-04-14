@@ -26,6 +26,9 @@ let (|Char|_|) = function
 let (|String|_|) = function
     | Value(v,t) when t = typeof<string> -> Some(v :?> string)
     | _ -> None
+let (|Bool|_|) = function
+    | Value(v,t) when t = typeof<bool> -> Some(v :?> bool)
+    | _ -> None
 
 let rec generate env (il:ILGenerator) = function
     | Int v -> generateInt il v
@@ -34,6 +37,8 @@ let rec generate env (il:ILGenerator) = function
     | Float32 v -> il.Emit(OpCodes.Ldc_R4, v)
     | Byte v -> generateInt il (int v)
     | Char v -> generateInt il (int v)
+    | Bool true -> generateInt il 1
+    | Bool false -> generateInt il 0
     | String v -> il.Emit(OpCodes.Ldstr, v)
     | Value(unit,_) -> ()
     | NewArray(t,args) -> generateArray env il t args
@@ -64,6 +69,16 @@ let rec generate env (il:ILGenerator) = function
     | Sequential(lhs,rhs) -> 
         generate env il lhs
         generate env il rhs
+    | IfThenElse(condition, t, f) ->
+        generate env il condition
+        let endLabel = il.DefineLabel()
+        let trueBranchLabel = il.DefineLabel()
+        il.Emit(OpCodes.Brtrue_S, trueBranchLabel)        
+        generate env il f
+        il.Emit(OpCodes.Br_S, endLabel)
+        il.MarkLabel(trueBranchLabel)        
+        generate env il t
+        il.MarkLabel(endLabel)
     | arg -> raise <| System.NotSupportedException(arg.ToString())
 and generateArray env (il:ILGenerator) t args =
     generateInt il args.Length
