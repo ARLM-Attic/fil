@@ -42,6 +42,7 @@ let rec generate env (il:ILGenerator) = function
     | Bool true -> generateInt il 1
     | Bool false -> generateInt il 0
     | String v -> il.Emit(OpCodes.Ldstr, v)
+    | NewObject(ci,args) -> generateAll env il args; il.Emit(OpCodes.Newobj, ci)
     | NewArray(t,args) -> generateArray env il t args
     | NewTuple(args) -> generateTuple env il args
     | TupleGet(tuple,index) -> generateTupleGet env il tuple index
@@ -70,15 +71,7 @@ let rec generate env (il:ILGenerator) = function
     | Sequential(lhs,rhs) -> generate env il lhs; generate env il rhs
     | IfThenElse(condition, t, f) -> generateIfThenElse env il condition t f
     | ForIntegerRangeLoop(var,Int a,Int b,body) -> generateForLoop env il var a b body
-    | WhileLoop(condition, body) ->
-        let loopLabel = il.DefineLabel()
-        let exitLabel = il.DefineLabel()
-        il.MarkLabel(loopLabel)
-        generate env il condition
-        il.Emit(OpCodes.Brfalse_S, exitLabel)
-        generate env il body
-        il.Emit(OpCodes.Br_S, loopLabel)
-        il.MarkLabel(exitLabel)
+    | WhileLoop(condition, body) -> generateWhileLoop env il condition body
     | arg -> raise <| System.NotSupportedException(arg.ToString())
 and generateTuple env (il:ILGenerator) args =
     for arg in args do generate env il arg
@@ -138,6 +131,15 @@ and generateForLoop env (il:ILGenerator) (var:Var) a b body =
     il.Emit(OpCodes.Ldloc, local)
     generateInt il 1
     il.Emit(OpCodes.Add)
+    il.Emit(OpCodes.Br_S, loopLabel)
+    il.MarkLabel(exitLabel)
+and generateWhileLoop env il condition body =
+    let loopLabel = il.DefineLabel()
+    let exitLabel = il.DefineLabel()
+    il.MarkLabel(loopLabel)
+    generate env il condition
+    il.Emit(OpCodes.Brfalse_S, exitLabel)
+    generate env il body
     il.Emit(OpCodes.Br_S, loopLabel)
     il.MarkLabel(exitLabel)
 and generateInt (il:ILGenerator) = function

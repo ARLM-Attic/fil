@@ -11,8 +11,11 @@ let ``2 <= 2`` () = 2 <= 2
 let ``mod`` () = 5 % 4
 let ``**`` () = 2. ** 4.
 let ``max`` () = System.Math.Max(0,1)
+let ``new`` () = System.DateTime(1L)
 let ``Array`` () = [|1;2;3|]
 let ``[|x..y|]`` () = [|1..3|]
+let ``Array get`` () = [|1..3|].[1]
+let ``Array set`` () = let xs = [|1..3|] in xs.[1] <- 0; xs
 let ``tuple/2`` () = 1,2
 let ``tuple/3`` () = 1,2,3
 let ``tuple get`` () = let _,two = 1,2 in two
