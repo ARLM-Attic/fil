@@ -5,6 +5,21 @@ open Microsoft.FSharp.Reflection
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.DerivedPatterns
 open Microsoft.FSharp.Quotations.Patterns
+  
+let (|GetArray|_|) = function
+    | Call(None,mi,[xs; Int32 index]) when 
+        xs.Type.IsArray &&
+        mi.DeclaringType.Name="IntrinsicFunctions" &&
+        mi.Name = "GetArray" ->
+        Some (xs,index)
+    | _ -> None
+let (|SetArray|_|) = function
+    | Call(None,mi,[xs; Int32 index; x]) when 
+        xs.Type.IsArray &&
+        mi.DeclaringType.Name="IntrinsicFunctions" && 
+        mi.Name = "SetArray" ->
+        Some (xs,index, x)
+    | _ -> None
 
 let rec generate env (il:ILGenerator) = function
     | Value(_,t) when t = typeof<unit> -> ()
@@ -19,6 +34,8 @@ let rec generate env (il:ILGenerator) = function
     | String v -> il.Emit(OpCodes.Ldstr, v)
     | NewObject(ci,args) -> generateAll env il args; il.Emit(OpCodes.Newobj, ci)
     | NewArray(t,args) -> generateArray env il t args
+    | GetArray(xs,index) -> generateGetArray env il xs index
+    | SetArray(xs,index,x) -> generateSetArray env il xs index x
     | NewTuple(args) -> generateTuple env il args
     | TupleGet(tuple,index) -> generateTupleGet env il tuple index
     | SpecificCall <@@ (+) @@> (None, _, [Int32 l;Int32 r]) -> generateInt il (l+r)
@@ -70,6 +87,15 @@ and generateArray env (il:ILGenerator) t args =
         generate env il arg
         il.Emit(OpCodes.Stelem,t)
     )
+and generateGetArray env il xs index =
+    generate env il xs
+    generateInt il index
+    il.Emit(OpCodes.Ldelem, xs.Type.GetElementType())
+and generateSetArray env il xs index x =
+    generate env il xs
+    generateInt il index
+    generate env il x
+    il.Emit(OpCodes.Stelem, xs.Type.GetElementType())
 and generateOps env (il:ILGenerator) args ops =
     generateAll env il args
     for op in ops do il.Emit(op)
@@ -129,7 +155,8 @@ and generateInt (il:ILGenerator) = function
     | 6 -> il.Emit(OpCodes.Ldc_I4_6)
     | 7 -> il.Emit(OpCodes.Ldc_I4_7)
     | 8 -> il.Emit(OpCodes.Ldc_I4_8)
-    | s when s >= -127 && s <= 128 -> il.Emit(OpCodes.Ldc_I4_S, s) 
+    | -1 -> il.Emit(OpCodes.Ldc_I4_M1)
+    | s when s >= -127 && s <= 128 -> il.Emit(OpCodes.Ldc_I4_S, byte s) 
     | n -> il.Emit(OpCodes.Ldc_I4, n)
 and generateAll env il args = for arg in args do generate env il arg
 
