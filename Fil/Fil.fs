@@ -49,6 +49,11 @@ let rec generate env (il:ILGenerator) = function
     | SpecificCall <@@ (-) @@> (None, _, args) -> generateOps env il args [OpCodes.Sub]
     | SpecificCall <@@ (*) @@> (None, _, args) -> generateOps env il args [OpCodes.Mul]
     | SpecificCall <@@ (/) @@> (None, _, args) -> generateOps env il args [OpCodes.Div]
+    | SpecificCall <@@ (%) @@> (None, _, args) -> generateOps env il args [OpCodes.Rem]
+    | SpecificCall <@@ ( ** ) @@> (None, _, args) ->
+        generateAll env il args
+        let mi = typeof<System.Math>.GetMethod("Pow")
+        il.EmitCall(OpCodes.Call, mi, null)
     | SpecificCall <@@ (=) @@> (None, _, args) -> generateOps env il args [OpCodes.Ceq]
     | SpecificCall <@@ (<>) @@> (None, _, args) -> generateOps env il args [OpCodes.Ceq;OpCodes.Ldc_I4_0;OpCodes.Ceq]
     | SpecificCall <@@ (<) @@> (None, _, args) -> generateOps env il args [OpCodes.Clt]
