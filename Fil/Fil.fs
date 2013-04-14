@@ -35,6 +35,7 @@ let rec generate env (il:ILGenerator) = function
     | Byte v -> generateInt il (int v)
     | Char v -> generateInt il (int v)
     | String v -> il.Emit(OpCodes.Ldstr, v)
+    | Value(unit,_) -> ()
     | NewArray(t,args) -> generateArray env il t args
     | SpecificCall <@@ (+) @@> (None, _, [Int l;Int r]) -> generateInt il (l+r)
     | SpecificCall <@@ (+) @@> (None, _, args) -> generateOps env il args [OpCodes.Add]        
@@ -60,6 +61,9 @@ let rec generate env (il:ILGenerator) = function
         match env |> List.tryFind (fst >> (=) var.Name) with
         | Some(_, local) -> il.Emit(OpCodes.Ldloc, local.LocalIndex)
         | None -> invalidOp ""
+    | Sequential(lhs,rhs) -> 
+        generate env il lhs
+        generate env il rhs
     | arg -> raise <| System.NotSupportedException(arg.ToString())
 and generateArray env (il:ILGenerator) t args =
     generateInt il args.Length
