@@ -10,9 +10,9 @@ open NUnit.Framework
 let test (methodInfo:MethodInfo) =
     let expr =
         match Expr.TryGetReflectedDefinition(methodInfo) with
-        | Some(Lambda(_,expr)) -> expr
+        | Some(Lambda(unit,expr)) -> expr
         | Some(_) -> failwith "expecting lambda"
-        | None -> invalidOp ""
+        | None -> invalidOp "expecting reflected definition"
     let f = compileUntyped methodInfo.ReturnType expr
     let expected = methodInfo.Invoke(null, [||])
     let actual = f ()

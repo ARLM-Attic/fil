@@ -1,6 +1,7 @@
 ﻿module Fil
 
 open System.Reflection.Emit
+open Microsoft.FSharp.Reflection
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.DerivedPatterns
 open Microsoft.FSharp.Quotations.Patterns
@@ -42,6 +43,7 @@ let rec generate env (il:ILGenerator) = function
     | String v -> il.Emit(OpCodes.Ldstr, v)
     | Value(unit,_) -> ()
     | NewArray(t,args) -> generateArray env il t args
+    | NewTuple(args) -> generateTuple env il args
     | SpecificCall <@@ (+) @@> (None, _, [Int l;Int r]) -> generateInt il (l+r)
     | SpecificCall <@@ (+) @@> (None, _, args) -> generateOps env il args [OpCodes.Add]        
     | SpecificCall <@@ (-) @@> (None, _, args) -> generateOps env il args [OpCodes.Sub]
@@ -80,6 +82,12 @@ let rec generate env (il:ILGenerator) = function
         generate env il t
         il.MarkLabel(endLabel)
     | arg -> raise <| System.NotSupportedException(arg.ToString())
+and generateTuple env (il:ILGenerator) args =
+    for arg in args do generate env il arg
+    let types = [|for arg in args -> arg.Type|]
+    let tuple = FSharpType.MakeTupleType(types)
+    let ci = tuple.GetConstructor(types)
+    il.Emit(OpCodes.Newobj, ci)
 and generateArray env (il:ILGenerator) t args =
     generateInt il args.Length
     il.Emit(OpCodes.Newarr,t)
