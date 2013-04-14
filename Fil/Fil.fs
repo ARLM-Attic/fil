@@ -6,37 +6,12 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.DerivedPatterns
 open Microsoft.FSharp.Quotations.Patterns
 
-let (|Int|_|) = function
-    | Value(v,t) when t = typeof<int> -> Some(v :?> int)
-    | _ -> None
-let (|Int64|_|) = function
-    | Value(v,t) when t = typeof<int64> -> Some(v :?> int64)
-    | _ -> None
-let (|Float|_|) = function
-    | Value(v,t) when t = typeof<float> -> Some(v :?> float)
-    | _ -> None
-let (|Float32|_|) = function
-    | Value(v,t) when t = typeof<float32> -> Some(v :?> float32)
-    | _ -> None
-let (|Byte|_|) = function
-    | Value(v,t) when t = typeof<byte> -> Some(v :?> byte)
-    | _ -> None
-let (|Char|_|) = function
-    | Value(v,t) when t = typeof<char> -> Some(v :?> char)
-    | _ -> None
-let (|String|_|) = function
-    | Value(v,t) when t = typeof<string> -> Some(v :?> string)
-    | _ -> None
-let (|Bool|_|) = function
-    | Value(v,t) when t = typeof<bool> -> Some(v :?> bool)
-    | _ -> None
-
 let rec generate env (il:ILGenerator) = function
     | Value(_,t) when t = typeof<unit> -> ()
-    | Int v -> generateInt il v
+    | Int32 v -> generateInt il v
     | Int64 v  -> il.Emit(OpCodes.Ldc_I8, v)
-    | Float v -> il.Emit(OpCodes.Ldc_R8, v)
-    | Float32 v -> il.Emit(OpCodes.Ldc_R4, v)
+    | Double v -> il.Emit(OpCodes.Ldc_R8, v)
+    | Single v -> il.Emit(OpCodes.Ldc_R4, v)
     | Byte v -> generateInt il (int v)
     | Char v -> generateInt il (int v)
     | Bool true -> generateInt il 1
@@ -46,7 +21,7 @@ let rec generate env (il:ILGenerator) = function
     | NewArray(t,args) -> generateArray env il t args
     | NewTuple(args) -> generateTuple env il args
     | TupleGet(tuple,index) -> generateTupleGet env il tuple index
-    | SpecificCall <@@ (+) @@> (None, _, [Int l;Int r]) -> generateInt il (l+r)
+    | SpecificCall <@@ (+) @@> (None, _, [Int32 l;Int32 r]) -> generateInt il (l+r)
     | SpecificCall <@@ (+) @@> (None, _, args) -> generateOps env il args [OpCodes.Add]        
     | SpecificCall <@@ (-) @@> (None, _, args) -> generateOps env il args [OpCodes.Sub]
     | SpecificCall <@@ (*) @@> (None, _, args) -> generateOps env il args [OpCodes.Mul]
@@ -60,19 +35,21 @@ let rec generate env (il:ILGenerator) = function
     | SpecificCall <@@ (>) @@> (None, _, args) -> generateOps env il args [OpCodes.Cgt]
     | SpecificCall <@@ (>=) @@> (None, _, args) -> generateOps env il args [OpCodes.Clt;OpCodes.Ldc_I4_0;OpCodes.Ceq]
     | Call(None,mi,args) -> generateAll env il args; il.EmitCall(OpCodes.Call, mi, null)
-    | Let(var, assignment, cont) -> generateLet env il var assignment cont
-    | Var(var) ->
-        let _, (local:LocalBuilder) = env |> List.find (fst >> (=) var.Name)
-        il.Emit(OpCodes.Ldloc, local)
-    | VarSet(var,assignment) ->
-        let _, local = env |> List.find (fst >> (=) var.Name)
-        generate env il assignment
-        il.Emit(OpCodes.Stloc, local)
+    | Let(var, expr, body) -> generateLet env il var expr body
+    | Var(var) -> generateVar env il var
+    | VarSet(var,expr) -> generateVarSet env il var expr
     | Sequential(lhs,rhs) -> generate env il lhs; generate env il rhs
     | IfThenElse(condition, t, f) -> generateIfThenElse env il condition t f
-    | ForIntegerRangeLoop(var,Int a,Int b,body) -> generateForLoop env il var a b body
+    | ForIntegerRangeLoop(var,Int32 a,Int32 b,body) -> generateForLoop env il var a b body
     | WhileLoop(condition, body) -> generateWhileLoop env il condition body
     | arg -> raise <| System.NotSupportedException(arg.ToString())
+and generateVar env (il:ILGenerator) var =
+    let _, (local:LocalBuilder) = env |> List.find (fst >> (=) var.Name)
+    il.Emit(OpCodes.Ldloc, local)
+and generateVarSet env il (var:Var) expr =
+    let _, local = env |> List.find (fst >> (=) var.Name)
+    generate env il expr
+    il.Emit(OpCodes.Stloc, local)
 and generateTuple env (il:ILGenerator) args =
     for arg in args do generate env il arg
     let types = [|for arg in args -> arg.Type|]
@@ -100,12 +77,12 @@ and generatePow env (il:ILGenerator) args =
     generateAll env il args
     let mi = typeof<System.Math>.GetMethod("Pow")
     il.EmitCall(OpCodes.Call, mi, null)
-and generateLet env (il:ILGenerator) (var:Var) assignment cont =
+and generateLet env (il:ILGenerator) (var:Var) expr body =
     let local = il.DeclareLocal(var.Type)
-    generate env il assignment
+    generate env il expr
     il.Emit(OpCodes.Stloc, local)
     let env = (var.Name,local)::env
-    generate env il cont
+    generate env il body
 and generateIfThenElse env (il:ILGenerator) condition t f =
     generate env il condition
     let endLabel = il.DefineLabel()
