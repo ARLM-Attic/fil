@@ -38,6 +38,9 @@ let rec generate env (il:ILGenerator) = function
     | SetArray(xs,index,x) -> generateSetArray env il xs index x
     | NewTuple(args) -> generateTuple env il args
     | TupleGet(tuple,index) -> generateTupleGet env il tuple index
+    | SpecificCall <@@ not @@> (None, _, args) -> generateOps env il args [OpCodes.Ldc_I4_0;OpCodes.Ceq]
+    | AndAlso (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.And]
+    | OrElse (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.Or]
     | SpecificCall <@@ (+) @@> (None, _, [Int32 l;Int32 r]) -> generateInt il (l+r)
     | SpecificCall <@@ (+) @@> (None, _, args) -> generateOps env il args [OpCodes.Add]        
     | SpecificCall <@@ (-) @@> (None, _, args) -> generateOps env il args [OpCodes.Sub]

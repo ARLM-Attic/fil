@@ -13,6 +13,10 @@ let ``1 > 2`` () = 1 > 2
 let ``2 <= 2`` () = 2 <= 2
 let ``mod`` () = 5 % 4
 let ``**`` () = 2. ** 4.
+let ``not false`` () = not false
+let ``not true`` () = not true
+let ``true and true`` () = true && true
+let ``true or false`` () = let a,b = true,false in a || b
 let ``max`` () = System.Math.Max(0,1)
 let ``new`` () = System.DateTime(1L)
 let ``Array`` () = [|1;2;3|]
