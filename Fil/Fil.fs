@@ -23,6 +23,7 @@ let (|SetArray|_|) = function
 
 let rec generate env (il:ILGenerator) = function
     | Value(_,t) when t = typeof<unit> -> ()
+    | Value(null,_) -> il.Emit(OpCodes.Ldnull)
     | Int32 v -> generateInt il v
     | Int64 v  -> il.Emit(OpCodes.Ldc_I8, v)
     | Double v -> il.Emit(OpCodes.Ldc_R8, v)

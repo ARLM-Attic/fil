@@ -1,6 +1,7 @@
 ﻿[<ReflectedDefinition>]
 module Examples
 
+let ``null`` () : obj = null
 let ``unit`` () = ()
 let ``1`` () = 1
 let ``9`` () = 9
