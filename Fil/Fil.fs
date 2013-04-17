@@ -65,11 +65,11 @@ let rec generate env (il:ILGenerator) = function
     | arg -> raise <| System.NotSupportedException(arg.ToString())
 and generateVar env (il:ILGenerator) var =
     let _, (local:LocalBuilder) = env |> List.find (fst >> (=) var.Name)
-    il.Emit(OpCodes.Ldloc, local)
+    generateLdloc il local
 and generateVarSet env il (var:Var) expr =
     let _, local = env |> List.find (fst >> (=) var.Name)
     generate env il expr
-    il.Emit(OpCodes.Stloc, local)
+    generateStloc il local
 and generateTuple env (il:ILGenerator) args =
     for arg in args do generate env il arg
     let types = [|for arg in args -> arg.Type|]
@@ -109,7 +109,7 @@ and generatePow env (il:ILGenerator) args =
 and generateLet env (il:ILGenerator) (var:Var) expr body =
     let local = il.DeclareLocal(var.Type)
     generate env il expr
-    il.Emit(OpCodes.Stloc, local)
+    generateStloc il local
     let env = (var.Name,local)::env
     generate env il body
 and generateIfThenElse env (il:ILGenerator) condition t f =
@@ -134,7 +134,7 @@ and generateForLoop env (il:ILGenerator) (var:Var) a b body =
     generateInt il b
     il.Emit(OpCodes.Bgt_S, exitLabel)
     generate env il body
-    il.Emit(OpCodes.Ldloc, local)
+    generateLdloc il local
     generateInt il 1
     il.Emit(OpCodes.Add)
     il.Emit(OpCodes.Br_S, loopLabel)
@@ -161,6 +161,22 @@ and generateInt (il:ILGenerator) = function
     | -1 -> il.Emit(OpCodes.Ldc_I4_M1)
     | s when s >= -127 && s <= 128 -> il.Emit(OpCodes.Ldc_I4_S, byte s) 
     | n -> il.Emit(OpCodes.Ldc_I4, n)
+and generateLdloc (il:ILGenerator) (local:LocalBuilder) = 
+    match local.LocalIndex with
+    | 0 -> il.Emit(OpCodes.Ldloc_0)
+    | 1 -> il.Emit(OpCodes.Ldloc_1)
+    | 2 -> il.Emit(OpCodes.Ldloc_2)
+    | 3 -> il.Emit(OpCodes.Ldloc_3)
+    | s when s < 256 -> il.Emit(OpCodes.Ldloc_S, byte s)
+    | n -> il.Emit(OpCodes.Ldloc, n)
+and generateStloc (il:ILGenerator) (local:LocalBuilder) =
+    match local.LocalIndex with
+    | 0 -> il.Emit(OpCodes.Stloc_0)
+    | 1 -> il.Emit(OpCodes.Stloc_1)
+    | 2 -> il.Emit(OpCodes.Stloc_2)
+    | 3 -> il.Emit(OpCodes.Stloc_3)
+    | s  when s < 256 -> il.Emit(OpCodes.Stloc_S, byte s)
+    | n -> il.Emit(OpCodes.Stloc, local)
 and generateAll env il args = for arg in args do generate env il arg
 
 type internal Marker = interface end

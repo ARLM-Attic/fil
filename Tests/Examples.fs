@@ -16,6 +16,7 @@ let ``**`` () = 2. ** 4.
 let ``not false`` () = not false
 let ``not true`` () = not true
 let ``true and true`` () = true && true
+let ``true and false`` () = true && false
 let ``true or false`` () = let a,b = true,false in a || b
 let ``max`` () = System.Math.Max(0,1)
 let ``new`` () = System.DateTime(1L)
@@ -31,6 +32,11 @@ let ``let2`` () = let a = 2 in let b = 3 in a * b
 let ``sequential`` () = (); (); (); 3
 let ``then`` () = if true then 1 else 0
 let ``else`` () = if false then 1 else 0
+let ``nested if`` () =
+    if true then
+        if true then 1
+        else 0
+    else -1
 let ``mutable`` () = let mutable x = 1 in x <- x + 1; x
 let ``for loop`` () = 
     let mutable sum = 0 
@@ -40,3 +46,10 @@ let ``while loop`` () =
     let mutable x = 3 
     while x > 0 do x <- x - 1
     x
+let ``locals`` () =
+    let a = 1
+    let b = 2
+    let c = 3
+    let d = 4
+    let e = 5
+    a + b + c + d + e
