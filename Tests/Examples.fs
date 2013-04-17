@@ -54,3 +54,10 @@ let ``locals`` () =
     let d = 4
     let e = 5
     a + b + c + d + e
+
+let ``match`` () =
+    let a  = 0
+    match a with
+    | 0 -> "Zero"
+    | 1 -> "One"
+    | n -> n.ToString()

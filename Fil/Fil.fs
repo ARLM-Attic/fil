@@ -56,6 +56,7 @@ let rec generate env (il:ILGenerator) = function
     | SpecificCall <@@ (>) @@> (None, _, args) -> generateOps env il args [OpCodes.Cgt]
     | SpecificCall <@@ (>=) @@> (None, _, args) -> generateOps env il args [OpCodes.Clt;OpCodes.Ldc_I4_0;OpCodes.Ceq]
     | Call(None,mi,args) -> generateAll env il args; il.EmitCall(OpCodes.Call, mi, null)
+    | Call(Some(target),mi,args) -> generate env il target; generateAll env il args; il.EmitCall(OpCodes.Callvirt, mi, null)
     | Let(var, expr, body) -> generateLet env il var expr body
     | Var(var) -> generateVar env il var
     | VarSet(var,expr) -> generateVarSet env il var expr
