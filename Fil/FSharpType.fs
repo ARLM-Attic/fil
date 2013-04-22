@@ -46,5 +46,44 @@ let internal MakeRecord(typeName:string, fields:(string * Type)[]) =
     il.Emit(OpCodes.Ret)
     typeBuilder.CreateType()
 
-let internal MakeUnion (name:string, cases:(string * Type[])[]) =
+type MyUnion =
+    | Case0
+    | Case1
+    //| Case1 of int
+    //| Case2 of int * string
+
+let internal MakeUnion (typeName:string, cases:(string * Type[])[]) =
+    let name = "GeneratedAssembly"
+    let domain = AppDomain.CurrentDomain
+    let assembly = domain.DefineDynamicAssembly(AssemblyName(name), AssemblyBuilderAccess.RunAndSave)
+    let name = "GeneratedModule"
+    let dm = assembly.DefineDynamicModule(name, name+".dll")
+    let attributes = TypeAttributes.Public ||| TypeAttributes.Class ||| TypeAttributes.Abstract
+    let typeBuilder = dm.DefineType(typeName, attributes)
+    let con = typeof<CompilationMappingAttribute>.GetConstructor([|typeof<SourceConstructFlags>|])
+    let customBuilder = CustomAttributeBuilder(con, [|SourceConstructFlags.SumType|])
+    typeBuilder.SetCustomAttribute(customBuilder)
+    
+    // Define properties 
+    for caseName, types in cases do
+        let attributes = PropertyAttributes.None
+        let propertyBuilder = typeBuilder.DefineProperty(caseName, attributes, CallingConventions.Standard, typeBuilder, [||])
+        ()
+
+    /// Parent type
+    let parent = typeBuilder.CreateType()
+    
+    // Define cases
+    for caseName, types in cases do
+        let attributes = TypeAttributes.Class ||| TypeAttributes.NestedAssembly
+        let caseBuilder = typeBuilder.DefineNestedType(caseName, attributes, parent)
+        let caseType = caseBuilder.CreateType()
+        ()
+
+    let unionType = typeBuilder.CreateType()
+    
+    // Debug
+    assembly.Save("GeneratedModule.dll")
+
+    // Code not complete
     raise <| NotImplementedException()

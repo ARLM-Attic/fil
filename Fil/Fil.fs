@@ -1,8 +1,8 @@
 ﻿module Fil
 
 type Microsoft.FSharp.Reflection.FSharpType with
-    static member MakeRecord(name,fields) = FSharpType.MakeRecord(name,fields)
-    static member MakeUnion(name,cases) = FSharpType.MakeUnion(name,cases)
+    static member MakeRecordType(name,fields) = FSharpType.MakeRecord(name,fields)
+    static member MakeUnionType(name,cases) = FSharpType.MakeUnion(name,cases)
 
 open FSharpFun
 open System.Reflection.Emit
