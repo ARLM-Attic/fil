@@ -5,6 +5,7 @@ open System.Reflection
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 open NUnit.Framework
+open Microsoft.FSharp.Reflection
 
 [<TestCaseSource("examples")>]
 let test (methodInfo:MethodInfo) =
@@ -13,7 +14,7 @@ let test (methodInfo:MethodInfo) =
         | Some(Lambda(unit,expr)) -> expr
         | Some(_) -> failwith "expecting lambda"
         | None -> invalidOp "expecting reflected definition"
-    let f = compileUntyped methodInfo.ReturnType expr
+    let f = CompileUntyped(expr, methodInfo.ReturnType)
     let expected = methodInfo.Invoke(null, [||])
     let actual = f ()
     Assert.AreEqual(expected, actual)

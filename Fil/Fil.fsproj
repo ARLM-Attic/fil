@@ -41,6 +41,8 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FSharpType.fs" />
+    <Compile Include="FSharpFun.fs" />
     <Compile Include="Fil.fs" />
     <None Include="Fil.fsx" />
   </ItemGroup>
