@@ -197,9 +197,8 @@ let internal MakeUnion (typeName:string, cases:(CaseName * Field[])[]) =
         caseBuilder.SetParent(parent)
         caseBuilder.CreateType() |> ignore
 
-    // Debug
+    #if DEBUG
     assembly.Save("GeneratedModule.dll")
+    #endif
 
-    // Code not complete
-    //raise <| NotImplementedException()
     parent

@@ -53,6 +53,7 @@ let [<Test>] ``can create valid instances of union cases`` () =
     let infos = FSharpType.GetUnionCases(unionType)
     for (name,values), info in Array.zip cases infos do
         let fields = info.GetFields()
-        let value = FSharpValue.MakeUnion(info, values)
-        ()
-    
+        let case = FSharpValue.MakeUnion(info, values)
+        for field, expected in Array.zip fields values do
+            let actual = field.GetValue(case, [||])
+            Assert.AreEqual(expected, actual)
