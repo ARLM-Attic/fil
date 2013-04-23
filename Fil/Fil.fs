@@ -8,7 +8,6 @@ type Microsoft.FSharp.Reflection.FSharpType with
                 name, types |> Array.mapi (fun i t -> sprintf "Item%d" i, t)
             |]
         FSharpType.MakeUnion(name, cases)
-    static member MakeUnionType(name, cases) = FSharpType.MakeUnion(name,cases)
 
 open FSharpFun
 open System.Reflection.Emit

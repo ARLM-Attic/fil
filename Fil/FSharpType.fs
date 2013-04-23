@@ -70,12 +70,12 @@ let internal MakeUnion (typeName:string, cases:(CaseName * Field[])[]) =
     unionTypeBuilder.SetCustomAttribute(customBuilder)
    
     // Define Tag field
-    let attributes = FieldAttributes.Assembly
+    let attributes = FieldAttributes.Assembly ||| FieldAttributes.InitOnly
     let tagFieldBuilder = unionTypeBuilder.DefineField("_tag", typeof<int>, attributes)
 
     // Define Tag property
     let attributes = PropertyAttributes.None
-    let tagPropertyBuilder = unionTypeBuilder.DefineProperty(name, attributes, typeof<int>, [||])
+    let tagPropertyBuilder = unionTypeBuilder.DefineProperty("Tag", attributes, typeof<int>, [||])
     let attributes = MethodAttributes.Public ||| MethodAttributes.HideBySig ||| MethodAttributes.SpecialName
     let tagMethodBuilder = unionTypeBuilder.DefineMethod("get_Tag", attributes, typeof<int>, [||])
     let il = tagMethodBuilder.GetILGenerator()
@@ -85,11 +85,12 @@ let internal MakeUnion (typeName:string, cases:(CaseName * Field[])[]) =
     tagPropertyBuilder.SetGetMethod(tagMethodBuilder)
 
     // Define union constructor
-    let cb = unionTypeBuilder.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, [|typeof<int>|])
-    let il = cb.GetILGenerator()
+    let unionTypeConstructor = 
+        unionTypeBuilder.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, [|typeof<int>|])
+    let il = unionTypeConstructor.GetILGenerator()
     il.Emit(OpCodes.Ldarg_0)
     il.Emit(OpCodes.Call, typeof<obj>.GetConstructor(Type.EmptyTypes))
-    let param = cb.DefineParameter(1, ParameterAttributes.In, "tag")
+    let param = unionTypeConstructor.DefineParameter(1, ParameterAttributes.In, "tag")
     il.Emit(OpCodes.Ldarg_0)
     il.Emit(OpCodes.Ldarg, param.Position)
     il.Emit(OpCodes.Stfld, tagFieldBuilder)
@@ -99,15 +100,29 @@ let internal MakeUnion (typeName:string, cases:(CaseName * Field[])[]) =
     let cases = cases |> Array.mapi (fun tag (name,fields) -> tag,name,fields)
 
     // Define tags
-    // ... 
+    let attributes = TypeAttributes.Class ||| TypeAttributes.NestedPublic ||| TypeAttributes.Abstract ||| TypeAttributes.Sealed
+    let tagsBuilder = unionTypeBuilder.DefineNestedType("Tags", attributes)
+    for tag,name,_ in cases do
+        let attributes = FieldAttributes.Public ||| FieldAttributes.Static ||| FieldAttributes.Literal
+        let tagFieldBuilder = tagsBuilder.DefineField(name, typeof<int>, attributes)
+        tagFieldBuilder.SetConstant(tag)
+    tagsBuilder.CreateType() |> ignore
 
     // Define case properties
     cases 
     |> Array.filter (fun (_,_,fields) -> fields.Length = 0)
     |> Array.iter (fun (tag, caseName, _) ->
         let attributes = PropertyAttributes.None
-        let propertyBuilder = unionTypeBuilder.DefineProperty(caseName, attributes, CallingConventions.Standard, unionTypeBuilder, [||])
-        ()
+        let propertyBuilder = 
+            unionTypeBuilder.DefineProperty(caseName, attributes, CallingConventions.Standard, unionTypeBuilder, [||])
+        let attributes = MethodAttributes.Public ||| MethodAttributes.HideBySig ||| MethodAttributes.SpecialName
+        let methodBuilder = unionTypeBuilder.DefineMethod("get_"+caseName, attributes, unionTypeBuilder, [||])
+        let il = methodBuilder.GetILGenerator()
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Ldc_I4, tag)
+        il.Emit(OpCodes.Newobj, unionTypeConstructor)
+        il.Emit(OpCodes.Ret)
+        propertyBuilder.SetGetMethod(methodBuilder)
     )
 
     // Define case types
@@ -147,4 +162,5 @@ let internal MakeUnion (typeName:string, cases:(CaseName * Field[])[]) =
     assembly.Save("GeneratedModule.dll")
 
     // Code not complete
-    raise <| NotImplementedException()
+    //raise <| NotImplementedException()
+    parent
