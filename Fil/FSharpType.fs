@@ -49,39 +49,100 @@ let internal MakeRecord(typeName:string, fields:(string * Type)[]) =
 type MyUnion =
     | Case0
     | Case1
-    //| Case1 of int
-    //| Case2 of int * string
+    | Case2 of int
+    | Case3 of int * string
 
-let internal MakeUnion (typeName:string, cases:(string * Type[])[]) =
+type CaseName = string
+type Field = string * Type
+
+let internal MakeUnion (typeName:string, cases:(CaseName * Field[])[]) =
     let name = "GeneratedAssembly"
     let domain = AppDomain.CurrentDomain
     let assembly = domain.DefineDynamicAssembly(AssemblyName(name), AssemblyBuilderAccess.RunAndSave)
     let name = "GeneratedModule"
     let dm = assembly.DefineDynamicModule(name, name+".dll")
     let attributes = TypeAttributes.Public ||| TypeAttributes.Class ||| TypeAttributes.Abstract
-    let typeBuilder = dm.DefineType(typeName, attributes)
+    let unionTypeBuilder = dm.DefineType(typeName, attributes)
+    
+    // Set CompilationMappingAttribute to SumType
     let con = typeof<CompilationMappingAttribute>.GetConstructor([|typeof<SourceConstructFlags>|])
     let customBuilder = CustomAttributeBuilder(con, [|SourceConstructFlags.SumType|])
-    typeBuilder.SetCustomAttribute(customBuilder)
-    
-    // Define properties 
-    for caseName, types in cases do
+    unionTypeBuilder.SetCustomAttribute(customBuilder)
+   
+    // Define Tag field
+    let attributes = FieldAttributes.Assembly
+    let tagFieldBuilder = unionTypeBuilder.DefineField("_tag", typeof<int>, attributes)
+
+    // Define Tag property
+    let attributes = PropertyAttributes.None
+    let tagPropertyBuilder = unionTypeBuilder.DefineProperty(name, attributes, typeof<int>, [||])
+    let attributes = MethodAttributes.Public ||| MethodAttributes.HideBySig ||| MethodAttributes.SpecialName
+    let tagMethodBuilder = unionTypeBuilder.DefineMethod("get_Tag", attributes, typeof<int>, [||])
+    let il = tagMethodBuilder.GetILGenerator()
+    il.Emit(OpCodes.Ldarg_0)
+    il.Emit(OpCodes.Ldfld, tagFieldBuilder)
+    il.Emit(OpCodes.Ret)
+    tagPropertyBuilder.SetGetMethod(tagMethodBuilder)
+
+    // Define union constructor
+    let cb = unionTypeBuilder.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, [|typeof<int>|])
+    let il = cb.GetILGenerator()
+    il.Emit(OpCodes.Ldarg_0)
+    il.Emit(OpCodes.Call, typeof<obj>.GetConstructor(Type.EmptyTypes))
+    let param = cb.DefineParameter(1, ParameterAttributes.In, "tag")
+    il.Emit(OpCodes.Ldarg_0)
+    il.Emit(OpCodes.Ldarg, param.Position)
+    il.Emit(OpCodes.Stfld, tagFieldBuilder)
+    il.Emit(OpCodes.Ret)
+
+    /// Cases
+    let cases = cases |> Array.mapi (fun tag (name,fields) -> tag,name,fields)
+
+    // Define tags
+    // ... 
+
+    // Define case properties
+    cases 
+    |> Array.filter (fun (_,_,fields) -> fields.Length = 0)
+    |> Array.iter (fun (tag, caseName, _) ->
         let attributes = PropertyAttributes.None
-        let propertyBuilder = typeBuilder.DefineProperty(caseName, attributes, CallingConventions.Standard, typeBuilder, [||])
+        let propertyBuilder = unionTypeBuilder.DefineProperty(caseName, attributes, CallingConventions.Standard, unionTypeBuilder, [||])
         ()
+    )
 
+    // Define case types
+    let caseTypes =
+        cases 
+        |> Array.filter (fun (_,_,fields) -> fields.Length > 0) 
+        |> Array.map (fun (tag,name,fields) ->
+            let attributes = TypeAttributes.Class ||| TypeAttributes.NestedAssembly
+            let caseBuilder = unionTypeBuilder.DefineNestedType(name, attributes)
+            let types = fields |> Array.map snd
+            let cb = caseBuilder.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, types)
+            let il = cb.GetILGenerator()
+            il.Emit(OpCodes.Ldarg_0)
+            il.Emit(OpCodes.Call, typeof<obj>.GetConstructor(Type.EmptyTypes))
+            il.Emit(OpCodes.Ret)
+            name, fields, caseBuilder
+        )
+
+    // Define case new methods
+    for caseName, fields, caseBuilder in caseTypes do
+        let types = fields |> Array.map snd
+        let methodBuilder = unionTypeBuilder.DefineMethod("New"+caseName, MethodAttributes.Static, unionTypeBuilder, types)
+        let il = methodBuilder.GetILGenerator()
+        types |> Array.iteri (fun i t -> il.Emit(OpCodes.Ldarg, i+1))
+        il.Emit(OpCodes.Newobj, caseBuilder)
+        il.Emit(OpCodes.Ret)
+    
     /// Parent type
-    let parent = typeBuilder.CreateType()
-    
-    // Define cases
-    for caseName, types in cases do
-        let attributes = TypeAttributes.Class ||| TypeAttributes.NestedAssembly
-        let caseBuilder = typeBuilder.DefineNestedType(caseName, attributes, parent)
-        let caseType = caseBuilder.CreateType()
-        ()
+    let parent = unionTypeBuilder.CreateType()
 
-    let unionType = typeBuilder.CreateType()
-    
+    // Create case types
+    for _,_,caseBuilder in caseTypes do 
+        caseBuilder.SetParent(parent)
+        caseBuilder.CreateType() |> ignore
+
     // Debug
     assembly.Save("GeneratedModule.dll")
 

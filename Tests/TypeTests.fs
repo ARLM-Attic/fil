@@ -24,5 +24,9 @@ let [<Test>] ``constructor of generated record`` () =
     Assert.AreEqual(expected, actual)
             
 let [<Test>] union () =
-    let unionType = FSharpType.MakeUnionType("MyRecord", [|"A",[||]|])
+    let cases =
+        [|"A", [||]
+          "B", [|typeof<int>|]
+        |]
+    let unionType = FSharpType.MakeUnionType("Union", cases)
     ()
