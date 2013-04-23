@@ -27,7 +27,32 @@ let [<Test>] ``can call GetUnionCases on generated union`` () =
     let cases =
         [|"A", [||]
           "B", [|typeof<int>|]
+          "C", [|typeof<int>;typeof<string>|]
         |]
     let unionType = FSharpType.MakeUnionType("Union", cases)
     let actual = FSharpType.GetUnionCases(unionType)
-    Assert.AreEqual(cases.Length, actual.Length)
+    let expectedNames = cases |> Array.map fst
+    let actualNames = actual |> Array.map (fun case -> case.Name)
+    Assert.AreEqual(expectedNames, actualNames)
+
+type MyUnion =
+    | A 
+    | B of int
+    | C of int * string
+
+let [<Test>] ``can create valid instances of union cases`` () =
+    let cases =
+        [|
+          "A", [||]
+          "B", [|box 1|]
+          "C", [|box 42;box "Hello"|]
+        |]    
+    let caseTypes = [|for name, xs in cases -> name, [|for x in xs -> x.GetType()|]|] 
+    let unionType = FSharpType.MakeUnionType("Union", caseTypes)
+    //let unionType = typeof<MyUnion>
+    let infos = FSharpType.GetUnionCases(unionType)
+    for (name,values), info in Array.zip cases infos do
+        let fields = info.GetFields()
+        let value = FSharpValue.MakeUnion(info, values)
+        ()
+    

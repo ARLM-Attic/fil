@@ -5,7 +5,9 @@ type Microsoft.FSharp.Reflection.FSharpType with
     static member MakeUnionType(name,cases) = 
         let cases =
             [|for name, types in cases ->
-                name, types |> Array.mapi (fun i t -> sprintf "Item%d" i, t)
+                match types with
+                | [|single|] -> name, [|"Item",single|]
+                | _ -> name, types |> Array.mapi (fun i t -> sprintf "Item%d" (i+1), t)
             |]
         FSharpType.MakeUnion(name, cases)
 
