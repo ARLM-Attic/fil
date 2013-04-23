@@ -46,12 +46,6 @@ let internal MakeRecord(typeName:string, fields:(string * Type)[]) =
     il.Emit(OpCodes.Ret)
     typeBuilder.CreateType()
 
-type MyUnion =
-    | Case0
-    | Case1
-    | Case2 of int
-    | Case3 of int * string
-
 type CaseName = string
 type Field = string * Type
 

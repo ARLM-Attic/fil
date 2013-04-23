@@ -1,13 +1,17 @@
 ﻿module Fil
 
 type Microsoft.FSharp.Reflection.FSharpType with
-    static member MakeRecordType(name,fields) = FSharpType.MakeRecord(name,fields)
+    /// Returns a Type representing an F# record type with the given fields
+    static member MakeRecordType(name,fields) = 
+        FSharpType.MakeRecord(name,fields)
+    /// Returns a Type representing an F# union type with the given cases
     static member MakeUnionType(name,cases) = 
         let cases =
             [|for name, types in cases ->
-                match types with
-                | [|single|] -> name, [|"Item",single|]
-                | _ -> name, types |> Array.mapi (fun i t -> sprintf "Item%d" (i+1), t)
+                name,
+                    match types with
+                    | [|single|] -> [|"Item",single|]
+                    | _ -> types |> Array.mapi (fun i t -> sprintf "Item%d" (i+1), t)
             |]
         FSharpType.MakeUnion(name, cases)
 
