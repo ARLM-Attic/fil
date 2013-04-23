@@ -165,7 +165,6 @@ let internal MakeUnion (typeName:string, cases:(CaseName * Field[])[]) =
                 cb.DefineParameter(i+1, ParameterAttributes.In, paramName) |> ignore
             )
             let il = cb.GetILGenerator()
-            (*
             il.Emit(OpCodes.Ldarg_0)
             il.Emit(OpCodes.Call, typeof<obj>.GetConstructor(Type.EmptyTypes))
             items |> Array.iteri (fun i item ->
@@ -173,13 +172,12 @@ let internal MakeUnion (typeName:string, cases:(CaseName * Field[])[]) =
                 il.Emit(OpCodes.Ldarg, i+1)
                 il.Emit(OpCodes.Stfld, item)
             )
-            *)
             il.Emit(OpCodes.Ret)
-            tag, name, fields, caseBuilder
+            tag, name, fields, caseBuilder, cb
         )
 
     // Define case new methods
-    for tag, caseName, fields, caseBuilder in caseTypes do        
+    for tag, caseName, fields, caseBuilder, cb in caseTypes do        
         let types = fields |> Array.map snd
         let attributes = MethodAttributes.Public ||| MethodAttributes.Static
         let methodBuilder = unionTypeBuilder.DefineMethod("New"+caseName, attributes, unionTypeBuilder, types)
@@ -187,15 +185,15 @@ let internal MakeUnion (typeName:string, cases:(CaseName * Field[])[]) =
         let customBuilder = CustomAttributeBuilder(con, [|SourceConstructFlags.UnionCase; tag|])
         methodBuilder.SetCustomAttribute(customBuilder)
         let il = methodBuilder.GetILGenerator()
-        //types |> Array.iteri (fun i t -> il.Emit(OpCodes.Ldarg, i))
-        //il.Emit(OpCodes.Newobj, caseBuilder.GetConstructor(types))
+        types |> Array.iteri (fun i t -> il.Emit(OpCodes.Ldarg, i))
+        il.Emit(OpCodes.Newobj, cb)
         il.Emit(OpCodes.Ret)
     
     /// Parent type
     let parent = unionTypeBuilder.CreateType()
 
     // Create case types
-    for _,_,_,caseBuilder in caseTypes do 
+    for _,_,_,caseBuilder,_ in caseTypes do 
         caseBuilder.SetParent(parent)
         caseBuilder.CreateType() |> ignore
 
