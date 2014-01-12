@@ -14,6 +14,8 @@ let ``1 > 2`` () = 1 > 2
 let ``2 <= 2`` () = 2 <= 2
 let ``mod`` () = 5 % 4
 let ``**`` () = 2. ** 4.
+let ``1 <<< 3`` () = 1 <<< 3
+let ``8 >>> 3`` () = 8 >>> 3
 let ``not false`` () = not false
 let ``not true`` () = not true
 let ``true and true`` () = true && true

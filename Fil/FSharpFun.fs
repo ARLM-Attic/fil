@@ -42,8 +42,10 @@ let rec internal generate env (il:ILGenerator) = function
     | SpecificCall <@@ not @@> (None, _, args) -> generateOps env il args [OpCodes.Ldc_I4_0;OpCodes.Ceq]
     | AndAlso (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.And]
     | OrElse (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.Or]
+    | SpecificCall <@@ (<<<) @@> (None, _, args) -> generateOps env il args [OpCodes.Shl]
+    | SpecificCall <@@ (>>>) @@> (None, _, args) -> generateOps env il args [OpCodes.Shr]
     | SpecificCall <@@ (+) @@> (None, _, [Int32 l;Int32 r]) -> generateInt il (l+r)
-    | SpecificCall <@@ (+) @@> (None, _, args) -> generateOps env il args [OpCodes.Add]        
+    | SpecificCall <@@ (+) @@> (None, _, args) -> generateOps env il args [OpCodes.Add]
     | SpecificCall <@@ (-) @@> (None, _, args) -> generateOps env il args [OpCodes.Sub]
     | SpecificCall <@@ (*) @@> (None, _, args) -> generateOps env il args [OpCodes.Mul]
     | SpecificCall <@@ (/) @@> (None, _, args) -> generateOps env il args [OpCodes.Div]
@@ -118,10 +120,10 @@ and internal generateIfThenElse env (il:ILGenerator) condition t f =
     generate env il condition
     let endLabel = il.DefineLabel()
     let trueBranchLabel = il.DefineLabel()
-    il.Emit(OpCodes.Brtrue_S, trueBranchLabel)        
+    il.Emit(OpCodes.Brtrue_S, trueBranchLabel)
     generate env il f
     il.Emit(OpCodes.Br_S, endLabel)
-    il.MarkLabel(trueBranchLabel)        
+    il.MarkLabel(trueBranchLabel)
     generate env il t
     il.MarkLabel(endLabel)
 and internal generateForLoop env (il:ILGenerator) (var:Var) a b body =
