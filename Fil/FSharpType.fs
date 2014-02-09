@@ -60,18 +60,39 @@ let internal MakeUnion (typeName:string, cases:(CaseName * Field[])[]) =
     
     // Set CompilationMappingAttribute to SumType
     let con = typeof<CompilationMappingAttribute>.GetConstructor([|typeof<SourceConstructFlags>|])
-    let customBuilder = CustomAttributeBuilder(con, [|SourceConstructFlags.SumType|])
-    unionTypeBuilder.SetCustomAttribute(customBuilder)
+    let sumType = CustomAttributeBuilder(con, [|SourceConstructFlags.SumType|])
+    unionTypeBuilder.SetCustomAttribute(sumType)
+
+    // Set Serializable
+    let con = typeof<System.SerializableAttribute>.GetConstructor([||])
+    let serializable = CustomAttributeBuilder(con, [||])
+    unionTypeBuilder.SetCustomAttribute(serializable)
    
     // Define Tag field
     let attributes = FieldAttributes.Assembly ||| FieldAttributes.InitOnly
     let tagFieldBuilder = unionTypeBuilder.DefineField("_tag", typeof<int>, attributes)
 
+    /// Marks property as compiler generated
+    let markAsCompilerGenerated (propertyBuilder:PropertyBuilder) =
+        let con = typeof<System.Runtime.CompilerServices.CompilerGeneratedAttribute>.GetConstructor([||])
+        let compilerGenerated = CustomAttributeBuilder(con, [||])
+        propertyBuilder.SetCustomAttribute(compilerGenerated)
+        let con = typeof<System.Diagnostics.DebuggerNonUserCodeAttribute>.GetConstructor([||])
+        let nonUserCode = CustomAttributeBuilder(con, [||])
+        propertyBuilder.SetCustomAttribute(nonUserCode)
+        let con = typeof<System.Diagnostics.DebuggerBrowsableAttribute>.GetConstructor([|typeof<System.Diagnostics.DebuggerBrowsableState>|])
+        let nonBrowsable = CustomAttributeBuilder(con, [|System.Diagnostics.DebuggerBrowsableState.Never|])
+        propertyBuilder.SetCustomAttribute(nonBrowsable)
+
     // Define Tag property
     let attributes = PropertyAttributes.None
     let tagPropertyBuilder = unionTypeBuilder.DefineProperty("Tag", attributes, typeof<int>, [||])
+    markAsCompilerGenerated tagPropertyBuilder
     let attributes = MethodAttributes.Public ||| MethodAttributes.HideBySig ||| MethodAttributes.SpecialName
     let tagMethodBuilder = unionTypeBuilder.DefineMethod("get_Tag", attributes, typeof<int>, [||])
+    let con = typeof<System.Diagnostics.DebuggerNonUserCodeAttribute>.GetConstructor([||])
+    let nonUserCode = CustomAttributeBuilder(con, [||])
+    tagMethodBuilder.SetCustomAttribute(nonUserCode)
     let il = tagMethodBuilder.GetILGenerator()
     il.Emit(OpCodes.Ldarg_0)
     il.Emit(OpCodes.Ldfld, tagFieldBuilder)
@@ -106,18 +127,22 @@ let internal MakeUnion (typeName:string, cases:(CaseName * Field[])[]) =
     cases 
     |> Array.filter (fun (_,_,fields) -> fields.Length = 0)
     |> Array.iter (fun (tag, caseName, _) ->
+        // Generate property
         let attributes = PropertyAttributes.None
         let propertyBuilder = 
             unionTypeBuilder.DefineProperty(caseName, attributes, CallingConventions.Standard, unionTypeBuilder, [||])
+        markAsCompilerGenerated propertyBuilder
+        // Generate getter method
         let attributes = MethodAttributes.Public ||| MethodAttributes.Static
         let methodBuilder = unionTypeBuilder.DefineMethod("get_"+caseName, attributes, unionTypeBuilder, [||])
-        let con = typeof<CompilationMappingAttribute>.GetConstructor([|typeof<SourceConstructFlags>|])
-        let customBuilder = CustomAttributeBuilder(con, [|SourceConstructFlags.UnionCase|])
+        let con = typeof<CompilationMappingAttribute>.GetConstructor([|typeof<SourceConstructFlags>;typeof<int>|])
+        let customBuilder = CustomAttributeBuilder(con, [|SourceConstructFlags.UnionCase; tag|])
         methodBuilder.SetCustomAttribute(customBuilder)
         let il = methodBuilder.GetILGenerator()
         il.Emit(OpCodes.Ldc_I4, tag)
         il.Emit(OpCodes.Newobj, unionTypeConstructor)
         il.Emit(OpCodes.Ret)
+        // Set get method
         propertyBuilder.SetGetMethod(methodBuilder)
     )
 
@@ -171,7 +196,7 @@ let internal MakeUnion (typeName:string, cases:(CaseName * Field[])[]) =
         )
 
     // Define case new methods
-    for tag, caseName, fields, caseBuilder, cb in caseTypes do        
+    for tag, caseName, fields, caseBuilder, cb in caseTypes do
         let types = fields |> Array.map snd
         let attributes = MethodAttributes.Public ||| MethodAttributes.Static
         let methodBuilder = unionTypeBuilder.DefineMethod("New"+caseName, attributes, unionTypeBuilder, types)
