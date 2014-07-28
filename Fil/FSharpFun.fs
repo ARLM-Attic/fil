@@ -5,7 +5,7 @@ open Microsoft.FSharp.Reflection
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.DerivedPatterns
 open Microsoft.FSharp.Quotations.Patterns
-  
+
 let internal (|GetArray|_|) = function
     | Call(None,mi,[xs; Int32 index]) when 
         xs.Type.IsArray &&
@@ -30,6 +30,10 @@ let rec internal generate env (il:ILGenerator) = function
     | Single v -> il.Emit(OpCodes.Ldc_R4, v)
     | Byte v -> generateInt il (int v)
     | Char v -> generateInt il (int v)
+    | SByte v -> generateInt il (int v)
+    | UInt16 v -> generateInt il (int v)
+    | UInt32 v -> generateInt il (int v)
+    | UInt64 v -> il.Emit(OpCodes.Ldc_I8, int64 v)
     | Bool true -> generateInt il 1
     | Bool false -> generateInt il 0
     | String v -> il.Emit(OpCodes.Ldstr, v)
@@ -44,12 +48,13 @@ let rec internal generate env (il:ILGenerator) = function
     | OrElse (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.Or]
     | SpecificCall <@@ (<<<) @@> (None, _, args) -> generateOps env il args [OpCodes.Shl]
     | SpecificCall <@@ (>>>) @@> (None, _, args) -> generateOps env il args [OpCodes.Shr]
+    | SpecificCall <@@ (+) @@> (None, [_;_;t], args) when t = typeof<string> -> generateConcat env il args
     | SpecificCall <@@ (+) @@> (None, _, [Int32 l;Int32 r]) -> generateInt il (l+r)
-    | SpecificCall <@@ (+) @@> (None, _, args) -> generateOps env il args [OpCodes.Add]
-    | SpecificCall <@@ (-) @@> (None, _, args) -> generateOps env il args [OpCodes.Sub]
-    | SpecificCall <@@ (*) @@> (None, _, args) -> generateOps env il args [OpCodes.Mul]
-    | SpecificCall <@@ (/) @@> (None, _, args) -> generateOps env il args [OpCodes.Div]
-    | SpecificCall <@@ (%) @@> (None, _, args) -> generateOps env il args [OpCodes.Rem]
+    | SpecificCall <@@ (+) @@> (None, [_;_;t], args) -> generateOps env il args ([OpCodes.Add]@(conv t))
+    | SpecificCall <@@ (-) @@> (None, [_;_;t], args) -> generateOps env il args ([OpCodes.Sub]@(conv t))
+    | SpecificCall <@@ (*) @@> (None, [_;_;t], args) -> generateOps env il args ([OpCodes.Mul]@(conv t))
+    | SpecificCall <@@ (/) @@> (None, [_;_;t], args) -> generateOps env il args ([OpCodes.Div]@(conv t))
+    | SpecificCall <@@ (%) @@> (None, [_;_;t], args) -> generateOps env il args ([OpCodes.Rem]@(conv t))
     | SpecificCall <@@ ( ** ) @@> (None, _, args) -> generatePow env il args
     | SpecificCall <@@ (=) @@> (None, _, args) -> generateOps env il args [OpCodes.Ceq]
     | SpecificCall <@@ (<>) @@> (None, _, args) -> generateOps env il args [OpCodes.Ceq;OpCodes.Ldc_I4_0;OpCodes.Ceq]
@@ -67,6 +72,10 @@ let rec internal generate env (il:ILGenerator) = function
     | ForIntegerRangeLoop(var,Int32 a,Int32 b,body) -> generateForLoop env il var a b body
     | WhileLoop(condition, body) -> generateWhileLoop env il condition body
     | arg -> raise <| System.NotSupportedException(arg.ToString())
+and internal conv = function
+    | t when t = typeof<sbyte> -> [OpCodes.Conv_I1]
+    | t when t = typeof<uint16> -> [OpCodes.Conv_U2]
+    | _ -> []
 and internal generateVar env (il:ILGenerator) var =
     let _, (local:LocalBuilder) = env |> List.find (fst >> (=) var.Name)
     generateLdloc il local
@@ -106,6 +115,10 @@ and internal generateSetArray env il xs index x =
 and internal generateOps env (il:ILGenerator) args ops =
     generateAll env il args
     for op in ops do il.Emit(op)
+and internal generateConcat env (il:ILGenerator) args =
+    generateArray env il typeof<string> args
+    let mi = typeof<string>.GetMethod("Concat", [|typeof<string[]>|]) in 
+    il.EmitCall(OpCodes.Call, mi, null)
 and internal generatePow env (il:ILGenerator) args =
     generateAll env il args
     let mi = typeof<System.Math>.GetMethod("Pow")
