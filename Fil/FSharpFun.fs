@@ -44,10 +44,8 @@ let rec internal generate env (il:ILGenerator) = function
     | SetArray(xs,index,x) -> generateSetArray env il xs index x
     | NewTuple(args) -> generateTuple env il args
     | TupleGet(tuple,index) -> generateTupleGet env il tuple index
-    | PropertyGet(None, pi, args) -> generateAll env il args; il.EmitCall(OpCodes.Call, pi.GetGetMethod(), null)
-    | PropertyGet(Some(target),pi,args) -> generate env il target; generateAll env il args; il.EmitCall(OpCodes.Callvirt, pi.GetGetMethod(), null)
-    | PropertySet(None, pi, args,value) -> generateAll env il args; generate env il value; il.EmitCall(OpCodes.Callvirt, pi.GetSetMethod(), null)
-    | PropertySet(Some(target), pi, args,value) -> generate env il target; generateAll env il args; generate env il value; il.EmitCall(OpCodes.Callvirt, pi.GetSetMethod(), null)
+    | NewUnionCase(case,[]) -> generateEmptyUnionCase env il case
+    | NewUnionCase(case,items) -> generateUnionCase env il case items
     | SpecificCall <@@ not @@> (None, _, args) -> generateOps env il args [OpCodes.Ldc_I4_0;OpCodes.Ceq]
     | AndAlso (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.And]
     | OrElse (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.Or]
@@ -69,6 +67,10 @@ let rec internal generate env (il:ILGenerator) = function
     | SpecificCall <@@ (>=) @@> (None, _, args) -> generateOps env il args [OpCodes.Clt;OpCodes.Ldc_I4_0;OpCodes.Ceq]
     | Call(None,mi,args) -> generateAll env il args; il.EmitCall(OpCodes.Call, mi, null)
     | Call(Some(target),mi,args) -> generate env il target; generateAll env il args; il.EmitCall(OpCodes.Callvirt, mi, null)
+    | PropertyGet(None, pi, args) -> generateAll env il args; il.EmitCall(OpCodes.Call, pi.GetGetMethod(), null)
+    | PropertyGet(Some(target),pi,args) -> generate env il target; generateAll env il args; il.EmitCall(OpCodes.Callvirt, pi.GetGetMethod(), null)
+    | PropertySet(None, pi, args,value) -> generateAll env il args; generate env il value; il.EmitCall(OpCodes.Call, pi.GetSetMethod(), null)
+    | PropertySet(Some(target), pi, args,value) -> generate env il target; generateAll env il args; generate env il value; il.EmitCall(OpCodes.Callvirt, pi.GetSetMethod(), null)
     | Let(var, expr, body) -> generateLet env il var expr body
     | Var(var) -> generateVar env il var
     | VarSet(var,expr) -> generateVarSet env il var expr
@@ -100,6 +102,14 @@ and internal generateTupleGet env il tuple index =
     generate env il tuple
     let pi = tuple.Type.GetProperty(sprintf "Item%d" (index+1))
     let mi = pi.GetGetMethod()
+    il.EmitCall(OpCodes.Call, mi, null)
+and internal generateEmptyUnionCase env il case =
+    let pi = case.DeclaringType.GetProperty(case.Name)
+    let mi = pi.GetGetMethod()
+    il.EmitCall(OpCodes.Call, mi, null)
+and internal generateUnionCase env il case items =
+    generateAll env il items
+    let mi = case.DeclaringType.GetMethod(case.Name)
     il.EmitCall(OpCodes.Call, mi, null)
 and internal generateArray env (il:ILGenerator) t args =
     generateInt il args.Length
