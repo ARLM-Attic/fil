@@ -52,6 +52,7 @@ let ``property get`` () = System.Math.PI
 let ``property set`` () = let x = System.Collections.Generic.List<int>() in x.Capacity <- 10; x.Capacity
 let ``none`` () : int option = None
 let ``some`` () = Some 1
+let ``typetest`` () = box 1 :? int
 let ``let`` () = let x = 1 in x + 1
 let ``let2`` () = let a = 2 in let b = 3 in a * b
 let ``sequential`` () = (); (); (); 3

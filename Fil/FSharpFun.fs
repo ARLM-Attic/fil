@@ -1,5 +1,7 @@
 ﻿module FSharpFun
 
+#nowarn "1204"
+
 open System.Reflection.Emit
 open Microsoft.FSharp.Reflection
 open Microsoft.FSharp.Quotations
@@ -46,6 +48,13 @@ let rec internal generate env (il:ILGenerator) = function
     | TupleGet(tuple,index) -> generateTupleGet env il tuple index
     | NewUnionCase(case,[]) -> generateEmptyUnionCase env il case
     | NewUnionCase(case,items) -> generateUnionCase env il case items
+    | SpecificCall <@@  Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions.TypeTestGeneric @@> (None,[t],[e]) ->
+        generate env il e
+        il.Emit(OpCodes.Isinst, t)
+        il.Emit(OpCodes.Ldnull)
+        il.Emit(OpCodes.Ceq)
+        il.Emit(OpCodes.Ldc_I4_0)
+        il.Emit(OpCodes.Ceq)
     | SpecificCall <@@ not @@> (None, _, args) -> generateOps env il args [OpCodes.Ldc_I4_0;OpCodes.Ceq]
     | AndAlso (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.And]
     | OrElse (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.Or]
