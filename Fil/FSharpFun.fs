@@ -24,6 +24,7 @@ let internal (|SetArray|_|) = function
 let rec internal generate env (il:ILGenerator) = function
     | Value(_,t) when t = typeof<unit> -> ()
     | Value(null,_) -> il.Emit(OpCodes.Ldnull)
+    | Int16 v -> generateInt il (int v)
     | Int32 v -> generateInt il v
     | Int64 v  -> il.Emit(OpCodes.Ldc_I8, v)
     | Double v -> il.Emit(OpCodes.Ldc_R8, v)
@@ -43,6 +44,10 @@ let rec internal generate env (il:ILGenerator) = function
     | SetArray(xs,index,x) -> generateSetArray env il xs index x
     | NewTuple(args) -> generateTuple env il args
     | TupleGet(tuple,index) -> generateTupleGet env il tuple index
+    | PropertyGet(None, pi, args) -> generateAll env il args; il.EmitCall(OpCodes.Call, pi.GetGetMethod(), null)
+    | PropertyGet(Some(target),pi,args) -> generate env il target; generateAll env il args; il.EmitCall(OpCodes.Callvirt, pi.GetGetMethod(), null)
+    | PropertySet(None, pi, args,value) -> generateAll env il args; generate env il value; il.EmitCall(OpCodes.Callvirt, pi.GetSetMethod(), null)
+    | PropertySet(Some(target), pi, args,value) -> generate env il target; generateAll env il args; generate env il value; il.EmitCall(OpCodes.Callvirt, pi.GetSetMethod(), null)
     | SpecificCall <@@ not @@> (None, _, args) -> generateOps env il args [OpCodes.Ldc_I4_0;OpCodes.Ceq]
     | AndAlso (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.And]
     | OrElse (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.Or]
@@ -74,6 +79,8 @@ let rec internal generate env (il:ILGenerator) = function
     | arg -> raise <| System.NotSupportedException(arg.ToString())
 and internal conv = function
     | t when t = typeof<sbyte> -> [OpCodes.Conv_I1]
+    | t when t = typeof<int16> -> [OpCodes.Conv_I2]
+    | t when t = typeof<byte> -> [OpCodes.Conv_U1]
     | t when t = typeof<uint16> -> [OpCodes.Conv_U2]
     | _ -> []
 and internal generateVar env (il:ILGenerator) var =
