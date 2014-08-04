@@ -48,6 +48,7 @@ let rec internal generate env (il:ILGenerator) = function
     | TupleGet(tuple,index) -> generateTupleGet env il tuple index
     | NewUnionCase(case,[]) -> generateEmptyUnionCase env il case
     | NewUnionCase(case,items) -> generateUnionCase env il case items
+    | UnionCaseTest(e,case) -> generate env il e; generateUnionCaseTest env il case       
     | SpecificCall <@@  Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions.TypeTestGeneric @@> (None,[t],[e]) ->
         generate env il e
         il.Emit(OpCodes.Isinst, t)
@@ -119,6 +120,10 @@ and internal generateEmptyUnionCase env il case =
 and internal generateUnionCase env il case items =
     generateAll env il items
     let mi = case.DeclaringType.GetMethod(case.Name)
+    il.EmitCall(OpCodes.Call, mi, null)
+and internal generateUnionCaseTest env il case =
+    let pi = case.DeclaringType.GetProperty("Is"+case.Name)
+    let mi = pi.GetGetMethod()
     il.EmitCall(OpCodes.Call, mi, null)
 and internal generateArray env (il:ILGenerator) t args =
     generateInt il args.Length

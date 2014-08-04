@@ -53,6 +53,7 @@ let ``property set`` () = let x = System.Collections.Generic.List<int>() in x.Ca
 let ``none`` () : int option = None
 let ``some`` () = Some 1
 let ``typetest`` () = box 1 :? int
+let ``matching`` () = let x = Some(1) in match x with Some x -> x | None -> 0
 let ``let`` () = let x = 1 in x + 1
 let ``let2`` () = let a = 2 in let b = 3 in a * b
 let ``sequential`` () = (); (); (); 3
