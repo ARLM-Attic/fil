@@ -49,10 +49,11 @@ let rec internal generate env (il:ILGenerator) = function
     | NewRecord(t,args) -> generateAll env il args; let ci = t.GetConstructors().[0] in il.Emit(OpCodes.Newobj, ci)
     | NewUnionCase(case,[]) -> generateEmptyUnionCase env il case
     | NewUnionCase(case,items) -> generateUnionCase env il case items
-    | UnionCaseTest(e,case) -> generate env il e; generateUnionCaseTest env il case    
+    | UnionCaseTest(e,case) -> generate env il e; generateUnionCaseTest env il case
     | TypeTest(e, t) -> generate env il e; generateTypeTestGeneric il t
     | SpecificCall <@@  Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions.TypeTestGeneric @@> (None,[t],[e]) ->
         generate env il e; generateTypeTestGeneric il t
+    | Coerce(e, t) -> generate env il e; il.Emit(OpCodes.Unbox_Any, t)
     | SpecificCall <@@ not @@> (None, _, args) -> generateOps env il args [OpCodes.Ldc_I4_0;OpCodes.Ceq]
     | AndAlso (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.And]
     | OrElse (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.Or]

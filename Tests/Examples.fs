@@ -58,6 +58,7 @@ let ``matching`` () = let x = Some(1) in match x with Some x -> x | None -> 0
 let ``generic typetest true`` () = box 1 :? int
 let ``generic typetest false`` () = box 1 :? decimal
 let ``typetest`` () = match box 1 with :? int -> true | _ -> false
+let ``coerce`` () = [|1|] :> System.Collections.IEnumerable
 let ``let`` () = let x = 1 in x + 1
 let ``let2`` () = let a = 2 in let b = 3 in a * b
 let ``sequential`` () = (); (); (); 3
