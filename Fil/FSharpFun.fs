@@ -22,6 +22,10 @@ let internal (|SetArray|_|) = function
         mi.Name = "SetArray" ->
         Some (xs,index,x)
     | _ -> None
+let internal (|TypeTestGeneric|_|) = function
+    | SpecificCall <@@  Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions.TypeTestGeneric @@> (None,[t],[e]) ->
+        Some(e,t)
+    | _ -> None
 
 let rec internal generate env (il:ILGenerator) = function
     | Value(_,t) when t = typeof<unit> -> ()
@@ -51,8 +55,7 @@ let rec internal generate env (il:ILGenerator) = function
     | NewUnionCase(case,items) -> generateUnionCase env il case items
     | UnionCaseTest(e,case) -> generate env il e; generateUnionCaseTest env il case
     | TypeTest(e, t) -> generate env il e; generateTypeTestGeneric il t
-    | SpecificCall <@@  Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions.TypeTestGeneric @@> (None,[t],[e]) ->
-        generate env il e; generateTypeTestGeneric il t
+    | TypeTestGeneric(e, t) -> generate env il e; generateTypeTestGeneric il t
     | Coerce(e, t) -> generate env il e; il.Emit(OpCodes.Unbox_Any, t)
     | SpecificCall <@@ not @@> (None, _, args) -> generateOps env il args [OpCodes.Ldc_I4_0;OpCodes.Ceq]
     | AndAlso (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.And]
