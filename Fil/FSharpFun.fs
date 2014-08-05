@@ -46,16 +46,13 @@ let rec internal generate env (il:ILGenerator) = function
     | SetArray(xs,index,x) -> generateSetArray env il xs index x
     | NewTuple(args) -> generateTuple env il args
     | TupleGet(tuple,index) -> generateTupleGet env il tuple index
+    | NewRecord(t,args) -> generateAll env il args; let ci = t.GetConstructors().[0] in il.Emit(OpCodes.Newobj, ci)
     | NewUnionCase(case,[]) -> generateEmptyUnionCase env il case
     | NewUnionCase(case,items) -> generateUnionCase env il case items
-    | UnionCaseTest(e,case) -> generate env il e; generateUnionCaseTest env il case       
+    | UnionCaseTest(e,case) -> generate env il e; generateUnionCaseTest env il case    
+    | TypeTest(e, t) -> generate env il e; generateTypeTestGeneric il t
     | SpecificCall <@@  Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions.TypeTestGeneric @@> (None,[t],[e]) ->
-        generate env il e
-        il.Emit(OpCodes.Isinst, t)
-        il.Emit(OpCodes.Ldnull)
-        il.Emit(OpCodes.Ceq)
-        il.Emit(OpCodes.Ldc_I4_0)
-        il.Emit(OpCodes.Ceq)
+        generate env il e; generateTypeTestGeneric il t
     | SpecificCall <@@ not @@> (None, _, args) -> generateOps env il args [OpCodes.Ldc_I4_0;OpCodes.Ceq]
     | AndAlso (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.And]
     | OrElse (lhs,rhs) -> generateOps env il [lhs;rhs] [OpCodes.Or]
@@ -125,6 +122,12 @@ and internal generateUnionCaseTest env il case =
     let pi = case.DeclaringType.GetProperty("Is"+case.Name)
     let mi = pi.GetGetMethod()
     il.EmitCall(OpCodes.Call, mi, null)
+and internal generateTypeTestGeneric il t =
+    il.Emit(OpCodes.Isinst, t)
+    il.Emit(OpCodes.Ldnull)
+    il.Emit(OpCodes.Ceq)
+    il.Emit(OpCodes.Ldc_I4_0)
+    il.Emit(OpCodes.Ceq)
 and internal generateArray env (il:ILGenerator) t args =
     generateInt il args.Length
     il.Emit(OpCodes.Newarr,t)

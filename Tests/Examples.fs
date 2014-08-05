@@ -50,10 +50,14 @@ let ``tuple/3`` () = 1,2,3
 let ``tuple get`` () = let _,two = 1,2 in two
 let ``property get`` () = System.Math.PI
 let ``property set`` () = let x = System.Collections.Generic.List<int>() in x.Capacity <- 10; x.Capacity
+let ``new record`` () = { MyRecord.A = 1; B="One" }
+let ``record field`` () = let x = { MyRecord.A = 1; B="One" } in x.A
 let ``none`` () : int option = None
 let ``some`` () = Some 1
-let ``typetest`` () = box 1 :? int
 let ``matching`` () = let x = Some(1) in match x with Some x -> x | None -> 0
+let ``generic typetest true`` () = box 1 :? int
+let ``generic typetest false`` () = box 1 :? decimal
+let ``typetest`` () = match box 1 with :? int -> true | _ -> false
 let ``let`` () = let x = 1 in x + 1
 let ``let2`` () = let a = 2 in let b = 3 in a * b
 let ``sequential`` () = (); (); (); 3
